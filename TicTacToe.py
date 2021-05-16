@@ -98,7 +98,7 @@ class Board:
         Searches for the best move and then applies it
         """
         depth = len(self.get_valid_moves(self.board))
-        if depth == 9:
+        if depth == self.size**2:
             x = np.random.randint(0, self.size)
             y = np.random.randint(0, self.size)
         else:
