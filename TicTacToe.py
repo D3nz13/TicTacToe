@@ -1,7 +1,7 @@
 import numpy as np
 
 PLAYER_ID = 1
-BOT_ID = 2
+BOT_ID = -1
 
 class Board:
     def __init__(self, size=3):
@@ -17,7 +17,7 @@ class Board:
     
     def is_over(self, state):
         """
-        This method checks if any of the players won by checking if any row/column/diagonal is filled with the same value and the value is not 0, also returns the winner
+        This method checks if any of the players won by checking if any row/column/diagonal is filled with the same value and the value is not 0
         """
         transposed_board = state.T
         left_right_diag = state.diagonal()
@@ -25,15 +25,17 @@ class Board:
 
         for row in state:  # checking by rows
             if np.all((row == row[0]) & (row[0] != 0)):
-                return (True, int(row[0]))
+                return True
         for col in transposed_board:  # checking by columns
             if np.all((col == col[0]) & (col[0] != 0)):
-                return (True, int(col[0]))
+                return True
         if np.all((left_right_diag == left_right_diag[0]) & (left_right_diag[0] != 0)):  # checking the diagonal coming from the left upper corner
-            return (True, int(left_right_diag[0]))
+            return True
         if np.all((right_left_diag == right_left_diag[0]) & (right_left_diag[0] != 0)):  # checking the diagonal coming from the right upper corner
-            return (True, int(right_left_diag[0]))
-        return (False, None)
+            return True
+        if len(self.get_valid_moves(state)) == 0:
+            return True
+        return False
     
     def valid_move(self, state, cords):
         """
@@ -47,18 +49,37 @@ class Board:
         Makes a move if valid
         """
         if self.valid_move(self.board, cords):
-            self.board[cords[0], cords[1]] = player
+            self.board[cords[0]][cords[1]] = player
         else:
             raise Exception('Invalid move ! Try a new one')
     
-    def evaluate_score(self, state, player):
+    def does_win(self, state, player):
         """
-        Evaluates the score of the current 
+        Checks if the player wins
         """
-        is_over, winner = self.is_over(state)
-        if is_over and winner == player:
+        transposed_board = state.T
+        left_right_diag = state.diagonal()
+        right_left_diag = np.flip(state, axis=0).diagonal()
+
+        for row in state:  # checking by rows
+            if np.all((row == row[0]) & (row[0] == player)):
+                return True
+        for col in transposed_board:  # checking by columns
+            if np.all((col == col[0]) & (col[0] == player)):
+                return True
+        if np.all((left_right_diag == left_right_diag[0]) & (left_right_diag[0] == player)):  # checking the diagonal coming from the left upper corner
+            return True
+        if np.all((right_left_diag == right_left_diag[0]) & (right_left_diag[0] == player)):  # checking the diagonal coming from the right upper corner
+            return True
+        return False
+    
+    def evaluate(self, state):
+        """
+        Evaluates the score of the current board
+        """
+        if self.does_win(state, BOT_ID):
             return 1
-        elif is_over:
+        elif self.does_win(state, PLAYER_ID):
             return -1
         else:
             return 0
@@ -67,53 +88,57 @@ class Board:
         """
         Finds the best move
         """
-        if depth == 0 or self.game_over:
-            return (self.evaluate_score(state, player), None)
-        
         all_moves = self.get_valid_moves(state)
-        
-        if player == PLAYER_ID:
-            best_score = np.inf
-            for move in all_moves:
-                state[move[0], move[1]] = player
-                evaluated = self.minimax(state, depth-1, BOT_ID)[0]
-                state[move[0], move[1]] = 0
-                if evaluated < best_score:
-                    best_score = evaluated
-                    best_move = move
-        else:
-            best_score = -np.inf
-            for move in all_moves:
-                state[move[0], move[1]] = player
-                evaluated = self.minimax(state, depth-1, PLAYER_ID)[0]
-                state[move[0], move[1]] = 0
-                if evaluated > best_score:
-                    best_score = evaluated
-                    best_move = move
 
-        return (best_score, best_move)
+        if player == BOT_ID:
+            best = [-1, -1, -np.inf]
+        else:
+            best = [-1, -1, np.inf]
+        
+        if depth == 0 or self.is_over(state):
+            return [-1, -1, self.evaluate(state)]
+        
+        for move in all_moves:
+            x, y = move[0], move[1]
+            state[x][y] = player
+            score = self.minimax(state, depth-1, -player)
+            state[x][y] = 0
+            score[0], score[1] = x, y
+
+            if player == BOT_ID:
+                if score[2] > best[2]:
+                    best = score
+            else:
+                if score[2] < best[2]:
+                    best = score
+        
+        return best
     
     def bot_turn(self):
         """
-        Searches for the best move and then applies it
+        Makes computer's turn
         """
         depth = len(self.get_valid_moves(self.board))
+        if depth == 0 or self.is_over(self.board):
+            return
         if depth == self.size**2:
             x = np.random.randint(0, self.size)
             y = np.random.randint(0, self.size)
         else:
-            _, [x, y] = self.minimax(self.board, depth, BOT_ID)
-        
+            move = self.minimax(self.board, depth, BOT_ID)
+            x, y = move[0], move[1]
         self.make_move([x, y], BOT_ID)
     
     def run(self):
         """
         Runs the game
         """
-        while not(self.is_over(self.board))[1]:
+        while not(self.is_over(self.board)) and len(self.get_valid_moves(self.board) >= 1):
             self.bot_turn()
             print(self.board)
             while True:
+                if self.is_over(self.board):
+                    break
                 x, y = list(map(int, input('What\'s your move?\n').split()))
                 try:
                     self.make_move([x, y], PLAYER_ID)
