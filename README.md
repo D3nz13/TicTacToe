@@ -10,4 +10,4 @@ Computer makes its move based on a Minimax algorithm that recursively analyzes a
 
 # TODO:
 - GUI
-- optimize the game for bigger boards (maybe use the depth limit)
+- optimize the game for bigger boards (maybe use alpha-beta pruning)
